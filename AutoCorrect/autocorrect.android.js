@@ -6,19 +6,16 @@
 
 import React, { Component } from "react";
 import {
-  AppRegistry,
   StyleSheet,
-  TextInput,
   View,
   FlatList,
   Text,
   Dimensions,
   Keyboard,
-  ScrollView,
-  findNodeHandle
+  StatusBar
 } from "react-native";
 
-export default class Autofill extends Component {
+export default class AutoCorrect extends Component {
   constructor(props) {
     super(props);
     this.state = {
@@ -30,11 +27,11 @@ export default class Autofill extends Component {
       dialogWidth: 0,
       dialogTop: 0,
       dialogBottom: 0,
-      dialogLeft: 0,
-      dialogVisible: false
+      dialogLeft: 0
     };
     this.keyBoardHeight = 0;
   }
+
   componentWillMount() {
     this.keyboardDidShowListener = Keyboard.addListener(
       "keyboardDidShow",
@@ -53,7 +50,7 @@ export default class Autofill extends Component {
 
   keyboardDidShow(e) {
     this.keyBoardHeight = e.endCoordinates.height;
-    this.measure();
+    setTimeout(() => this.measure(), 500);
   }
 
   keyboardDidHide(e) {
@@ -62,49 +59,53 @@ export default class Autofill extends Component {
   }
 
   measure = () => {
-    text = this.refs.text;
-    text.measure((fx, fy, width, height, px, py) => {
-      windowHeight = Dimensions.get("window").height;
+    console.log("measuring");
+    if (!this.props.textRef) {
+      console.log("null reference");
+      return
+    }
+    this.props.textRef.measure((fx, fy, width, height, px, py) => {
+      windowHeight = Dimensions.get("window").height - StatusBar.currentHeight;
       pageHeight = windowHeight - this.keyBoardHeight;
+      console.log("StatusBar.currentHeight: " + StatusBar.currentHeight);
       console.log("width: " + width);
       console.log("height: " + height);
       console.log("w-height: " + windowHeight);
       console.log("k-height: " + this.keyBoardHeight);
 
-      actualBottom = pageHeight - (py + height);
-      bottom = Dimensions.get("window").height - py;
+      bottom = pageHeight - py
       console.log("bottom: " + bottom);
-      console.log("actualBottom: " + actualBottom);
+      console.log("pageHeight: " + pageHeight);
       console.log("py + height: " + (py + height));
       console.log("fx: " + fx);
       console.log("fy: " + fy);
       console.log("px: " + px);
       console.log("py: " + py);
-      console.log("bottom - height: " + (bottom - height));
 
-      if (py > actualBottom) {
+      if (py > bottom) {
         if (
-          this.state.dialogBottom !== height ||
+          this.state.dialogBottom !== bottom ||
           this.state.dialogHeight !== py * 0.75
         ) {
           this.setState({
             dialogHeight: py * 0.75,
             dialogWidth: width,
             dialogTop: 0,
-            dialogBottom: height, //bottom + 90,
-            dialogLeft: fx
+            dialogBottom: bottom,
+            dialogLeft: px
           });
         }
       } else {
         if (
-          this.state.dialogTop !== height ||
+          this.state.dialogTop !== py + height ||
           this.state.dialogHeight !== (bottom - height) * 0.75
         ) {
           this.setState({
             dialogHeight: (bottom - height) * 0.75,
             dialogWidth: width,
-            dialogTop: height,
-            dialogBottom: 0
+            dialogTop: py + height,
+            dialogBottom: 0,
+            dialogLeft: px
           });
         }
       }
@@ -116,30 +117,12 @@ export default class Autofill extends Component {
     return (
       <View
         style={[styles.container, this.props.style]}
-        onLayout={() => {
-          this.measure();
-        }}
+        pointerEvents="box-none"
       >
-        {this.textInput()}
         {this.state.dialogVisible && this.itemList(items)}
       </View>
     );
   }
-
-  textInput = () =>
-    <TextInput
-      ref="text"
-      style={styles.textInput}
-      autoCapitalize={"none"}
-      autoCorrect={false}
-      onChangeText={text => {
-        this.textChanged(text);
-      }}
-      underlineColorAndroid="transparent"
-      placeholderTextColor="#888888"
-      placeholder="City"
-      value={this.state.text === "" ? this.state.tempText : this.state.text}
-    />;
 
   itemList = items => {
     let {
@@ -150,7 +133,7 @@ export default class Autofill extends Component {
       dialogLeft
     } = this.state;
     console.log(
-      "dialogTop, dialogHeight,dialogWidth, dialogTop, dialogBottom is",
+      "dialogHeight,dialogWidth, dialogTop, dialogBottom is",
       dialogHeight,
       dialogWidth,
       dialogTop,
@@ -176,12 +159,13 @@ export default class Autofill extends Component {
         onStartShouldSetResponderCapture={() => false}
       >
         <FlatList
-          ref="list"
+          ref={(list) => this.list = list}
           data={items}
           renderItem={({ item }) => this.listItem(item)}
           ItemSeparatorComponent={() => this.separator()}
           keyboardShouldPersistTaps="always"
           removeClippedSubviews={false}
+          pointerEvents="auto"
           onLayout={() => {
             if (this.refs.list && this.state.items.length > 0) {
               this.refs.list.scrollToOffset({ x: 0, y: 0, animated: false });
@@ -201,7 +185,7 @@ export default class Autofill extends Component {
         text: ""
       });
     } else {
-      this.setState({ items: [], tempText: text, text: "" });
+      this.setState({ dialogVisible: false, items: [], tempText: text, text: "" });
       if (this.timeout) {
         clearTimeout(this.timeout);
       }
@@ -243,22 +227,21 @@ export default class Autofill extends Component {
 
   separator = () => <View style={{ backgroundColor: "#CCCCCC", height: 1 }} />;
 
-  hideDialog = () => {
-    this.setState({ dialogVisible: false })
+  toggleDialog = (isVisible) => {
+    if (this.state.dialogVisible !==  isVisible) {
+      if ((isVisible && this.state.items.length > 0) || !isVisible) {
+        this.setState({ dialogVisible: isVisible })
+      }
+    }
   }
 }
 
 const styles = StyleSheet.create({
   container: {
+    height: "100%",
+    width: "100%",
+    position: "absolute",
     zIndex: 1
-  },
-  textInput: {
-    paddingLeft: 5,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 5,
-    borderColor: "#CCCCCC",
-    borderWidth: 1,
-    height: 40
   },
   list: {
     backgroundColor: "lightblue",

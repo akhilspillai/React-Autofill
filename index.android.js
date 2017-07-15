@@ -5,14 +5,16 @@
  */
 
 import React, { Component } from "react";
-import { AppRegistry, StyleSheet, View, ScrollView } from "react-native";
-import AutofillText from "./AutofillTextInput/autofill";
+import { AppRegistry, StyleSheet, View, ScrollView, TextInput } from "react-native";
+import AutoCorrect from "./AutoCorrect";
 
 export default class Autofill extends Component {
   constructor(props) {
     super(props);
     this.state = {
-      hideDialog: false
+      suggestVisible: false,
+      textRef: undefined,
+      cities: []
     };
   }
   render() {
@@ -20,24 +22,79 @@ export default class Autofill extends Component {
       <View
         style={styles.container}
       >
-        <ScrollView style={{ alignSelf: "stretch", width: "100%", position: "absolute", zIndex: 1 }}
+        <AutoCorrect
+          ref={(auto) => {this.auto = auto}}
+          textRef={this.state.textRef}
+          items={this.state.cities}
+          onItemClick={(city) => {this.setState({selected: true, text: city})}}
+          visible={!this.state.selected && this.state.dialogVisible}/>
+        <ScrollView style={{ alignSelf: "stretch" }}
           keyboardShouldPersistTaps="always"
-          onScroll={() => {
-            this.autofill.hideDialog()
-          }}>
+          onScrollBeginDrag={() => {
+            this.setState({dialogVisible: false})
+          }}
+          onScrollEndDrag={() => {
+            this.auto.measure(this.text)
+            this.setState({dialogVisible: true})
+          }}
+          onMomentumScrollEnd={() => {
+            this.auto.measure(this.text)
+            this.setState({dialogVisible: true})
+          }}
+        >
           <View style={{ height: 200, backgroundColor: "red" }} />
           <View style={{ height: 200, backgroundColor: "blue" }} />
-          <AutofillText
-            ref={(autofill) => {this.autofill = autofill}}
-            style={styles.autofill}
-            hideDialog={this.state.hideDialog}
-          />
+          <TextInput
+            style={styles.input}
+            ref={(text) => {this.state.textRef || this.setState({ textRef: text })}}
+            onChangeText={text => {this.textChanged(text)}}
+            onLayout={() => {this.auto.measure(this.text)}}
+            placeholder="Enter city"
+            autoCapitalize={"none"}
+            autoCorrect={false}
+            value={this.state.text}/>
           <View style={{ height: 200, backgroundColor: "green" }} />
           <View style={{ height: 200, backgroundColor: "yellow" }} />
         </ScrollView>
       </View>
     );
   }
+
+  textChanged = text => {
+    this.setState({
+      dialogVisible: false,
+      selected: false,
+      cities: [],
+      text: text
+    });
+    if (text.length > 2) {
+      if (this.timeout) {
+        clearTimeout(this.timeout);
+      }
+      console.log("timeout set");
+      this.timeout = setTimeout(() => this.getData(text), 500);
+    }
+  };
+
+  getData = text => {
+    console.log("fetching");
+    fetch(url + text)
+      .then(response => response.json())
+      .then(responseJson => {
+        if (responseJson.status == 200) {
+          console.log("fetched");
+          const results = responseJson.data.results.map((s, i) => {
+            return s.city_display;
+          });
+          if (this.state.text.length > 2) {
+            this.setState({ dialogVisible: true, cities: results });
+          }
+        }
+      })
+      .catch(error => {
+        console.error(error);
+      });
+  };
 }
 
 const styles = StyleSheet.create({
@@ -45,10 +102,15 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "flex-end",
     alignItems: "center",
-    backgroundColor: "#F5FCFF"
+    backgroundColor: "transparent"
   },
-  autofill: {
-    alignSelf: "stretch"
+  input: {
+    height: 40,
+    marginHorizontal: 10,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 5,
+    borderColor: "#CCCCCC",
+    borderWidth: 1,
   }
 });
 
