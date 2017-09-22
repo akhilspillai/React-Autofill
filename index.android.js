@@ -6,7 +6,7 @@
 
 import React, { Component } from "react";
 import { AppRegistry, StyleSheet, View, ScrollView, TextInput } from "react-native";
-import AutoCorrect from "./AutoCorrect";
+import Suggester from "./Suggester";
 
 export default class Autofill extends Component {
   constructor(props) {
@@ -22,7 +22,7 @@ export default class Autofill extends Component {
       <View
         style={styles.container}
       >
-        <AutoCorrect
+        <Suggester
           ref={(auto) => {this.auto = auto}}
           textRef={this.state.textRef}
           items={this.state.cities}
@@ -34,11 +34,12 @@ export default class Autofill extends Component {
             this.setState({dialogVisible: false})
           }}
           onScrollEndDrag={() => {
-            this.auto.measure(this.text)
             this.setState({dialogVisible: true})
           }}
+          onMomentumScrollBegin={() => {
+            this.setState({dialogVisible: false})
+          }}
           onMomentumScrollEnd={() => {
-            this.auto.measure(this.text)
             this.setState({dialogVisible: true})
           }}
         >
@@ -48,11 +49,10 @@ export default class Autofill extends Component {
             style={styles.input}
             ref={(text) => {this.state.textRef || this.setState({ textRef: text })}}
             onChangeText={text => {this.textChanged(text)}}
-            onLayout={() => {this.auto.measure(this.text)}}
             placeholder="Enter city"
             autoCapitalize={"none"}
-            autoCorrect={false}
-            value={this.state.text}/>
+            value={this.state.text}
+            suggest={this.auto}/>
           <View style={{ height: 200, backgroundColor: "green" }} />
           <View style={{ height: 200, backgroundColor: "yellow" }} />
         </ScrollView>
